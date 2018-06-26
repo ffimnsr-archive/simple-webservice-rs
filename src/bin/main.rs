@@ -1,10 +1,18 @@
 extern crate futures;
 extern crate hyper;
+extern crate diesel;
+extern crate sleeping_forest;
 
 use futures::future;
+
 use hyper::rt::{Future, Stream};
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
+
+use sleeping_forest::*;
+use self::models::*;
+use diesel::prelude::*;
+
 
 type BoxFut = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
@@ -50,6 +58,20 @@ fn echo(req: Request<Body>) -> BoxFut {
 }
 
 fn main() {
+    use self::schema::bug_reports::dsl::*;
+    let connection = establish_connection();
+
+    let results = bug_reports
+        .filter(status.eq(0))
+        .limit(5)
+        .load::<BugReport>(&connection)
+        .expect("error loading bug reports");
+
+    for report in results {
+        println!("{}", report.title);
+        println!("{}", report.content);
+    }
+
     let addr = "127.0.0.1:8888".parse().unwrap();
     let server = Server::bind(&addr)
         .serve(|| service_fn(echo))

@@ -1,0 +1,11 @@
+[package]
+name = "sleeping-forest"
+version = "0.1.0"
+authors = ["ffimnsr <ffimnsr@outlook.com>"]
+
+[dependencies]
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+hyper = "0.12"
+futures = "0.1"

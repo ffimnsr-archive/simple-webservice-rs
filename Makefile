@@ -1,4 +1,10 @@
 default:
-	cargo run
+	@RUST_LOG=sleeping_forest=info cargo run
 
-.PHONY: default
+test:
+	cargo test
+
+clean:
+	cargo clean
+
+.PHONY: default test clean

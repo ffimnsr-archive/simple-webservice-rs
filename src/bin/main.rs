@@ -1,82 +1,35 @@
+//! Oasis - Open Sesame Bug Bounty Platform
+
 extern crate futures;
+extern crate gotham;
+#[macro_use]
+extern crate gotham_derive;
+#[macro_use]
 extern crate hyper;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+extern crate mime;
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 extern crate diesel;
-extern crate sleeping_forest;
+extern crate dotenv;
+extern crate r2d2;
+extern crate r2d2_diesel;
 
-use futures::future;
+mod middlewares;
+mod handlers;
+mod router;
 
-use hyper::rt::{Future, Stream};
-use hyper::service::service_fn;
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
-
-use sleeping_forest::*;
-use self::models::*;
-use diesel::prelude::*;
-
-
-type BoxFut = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
-
-fn echo(req: Request<Body>) -> BoxFut {
-    let mut response = Response::new(Body::empty());
-
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/") => {
-            *response.body_mut() = Body::from("Try POSTing data to /echo");
-        }
-
-        (&Method::POST, "/echo") => {
-            *response.body_mut() = req.into_body();
-        }
-
-        (&Method::POST, "/echo/uppercase") => {
-            let mapping = req.into_body().map(|chunk| {
-                chunk
-                    .iter()
-                    .map(|byte| byte.to_ascii_uppercase())
-                    .collect::<Vec<u8>>()
-            });
-
-            *response.body_mut() = Body::wrap_stream(mapping);
-        }
-
-        (&Method::POST, "/echo/reversed") => {
-            let reversed = req.into_body().concat2().map(move |chunk| {
-                let body = chunk.iter().rev().cloned().collect::<Vec<u8>>();
-                *response.body_mut() = Body::from(body);
-                response
-            });
-
-            return Box::new(reversed);
-        }
-
-        _ => {
-            *response.status_mut() = StatusCode::NOT_FOUND;
-        }
-    }
-
-    Box::new(future::ok(response))
-}
+use self::router::router;
 
 fn main() {
-    use self::schema::bug_reports::dsl::*;
-    let connection = establish_connection();
+    env_logger::init();
 
-    let results = bug_reports
-        .filter(status.eq(0))
-        .limit(5)
-        .load::<BugReport>(&connection)
-        .expect("error loading bug reports");
-
-    for report in results {
-        println!("{}", report.title);
-        println!("{}", report.content);
-    }
-
-    let addr = "127.0.0.1:8888".parse().unwrap();
-    let server = Server::bind(&addr)
-        .serve(|| service_fn(echo))
-        .map_err(|e| eprintln!("server error: {:?}", e));
-
-    println!("Listening on http://{}", addr);
-    hyper::rt::run(server);
+    let addr = "127.0.0.1:8888";
+    info!("Listening for requests at http://{}", addr);
+    gotham::start(addr, router())
 }
+
